@@ -1,84 +1,95 @@
 #include <Arduino.h>
 #include <Adafruit_MPU6050.h>
-#include <Wire.h>
-#include "accel.h"
+#include "calibration.h"
 
-/* Reading constants */
-const int READ_TIME = 300;
+Adafruit_MPU6050 mpu;
+Adafruit_Sensor *mpu_temp, *mpu_accel, *mpu_gyro;
 
-/* Hardware variables */
-byte addresses[2];
+int current_time_millis = 0;
 
-void scanI2c()
+float current_speed_ms_x = 0;
+float current_speed_ms_y = 0;
+float current_speed_ms_z = 0;
+
+float current_position_m[] = {0, 0, 0};
+offset_values *offset;
+
+void correct_readings(sensors_event_t *accel)
 {
-  byte address, resultCode, foundDevices;
-
-  for (address = 0; address < 128; address++)
-  {
-    Wire.beginTransmission(address);
-    resultCode = Wire.endTransmission();
-
-    if (resultCode == 0)
-    {
-      Serial.print ("Dispositivo I2c detectado no endereço: ");
-      Serial.println(address, HEX);
-      addresses[foundDevices] = address;
-      foundDevices++;
-
-      delay(500);
-    }
-    delay(READ_TIME);
-  }
-
-  if (foundDevices > 0)
-  {
-    Serial.print("Foi encontrado um total de: ");
-    Serial.print(foundDevices);
-    Serial.println(" dispositivos");
-  }
-  else
-    Serial.println("Nenhum dispositivo foi encontrado !!!");
+  accel->acceleration.x -= offset->x;
+  accel->acceleration.y -= offset->y;
+  accel->acceleration.z -= offset->z;
 }
 
-void printAccelerometer(AccelData *data)
+void set_current_time()
 {
-  Serial.printf("Leitura do acelerômetro: ");
-  Serial.print("X ");
-  Serial.print(data->AccX);
-  Serial.print(" | Y ");
-  Serial.print(data->AccY);
-  Serial.print(" | Z ");
-  Serial.println(data->AccZ);
+  current_time_millis = millis();
+}
+
+void set_axis_speed(float *axis_speed, float acceleration, int time_millis)
+{
+  float time_seconds = static_cast<float>(time_millis) / 1000;
+  *axis_speed += acceleration * time_seconds;
+}
+
+void set_axis_position(char axis, float speed, int time_millis)
+{
+  uint8_t index;
+
+  switch (axis)
+  {
+    case 'x':
+      index = 0;
+      break;
+    case 'y':
+      index = 1;
+      break;
+    case 'z':
+      index = 2;
+      break;
+  }
+
+  float time_seconds = static_cast<float>(time_millis) / 1000;
+  current_position_m[index] += speed * time_seconds;
 }
 
 void setup()
 {
   Serial.begin(115200);
-  Wire.begin();
-  // startWire();
-  // setRegisters(accel_01);
-  // setRegisters(accel_02);
+  while (!Serial)
+    delay(10);
+
+  if (!mpu.begin())
+  {
+    Serial.println("Failed to find MPU6050 chip");
+    while (1)
+      delay(10);
+  }
+
+  mpu_accel = mpu.getAccelerometerSensor();
+  mpu_accel->printSensorDetails();
+
+  offset_values *offset = get_offset_values(1000, mpu_accel);
+
+  current_time_millis = millis();
 }
 
 void loop()
 {
-  // AccelData *data_01, *data_02;
-  // data_01 = readAccelerometer(accel_01);
-  // data_02 = readAccelerometer(accel_02);
+  sensors_event_t accel;
+  mpu_accel->getEvent(&accel);
+  correct_readings(&accel);
 
-  Wire.beginTransmission(addresses[0]);
-  Wire.write(0x3B); // Start with register 0x3B (ACCEL_XOUT_H)
-  Wire.endTransmission(false);
-  Wire.requestFrom(addresses[0], 6, true); // Read 6 registers total, each axis value is stored in 2 registers
-    //For a range of +-2g, we need to divide the raw values by 16384, according to the datasheet
-  float AccX = (Wire.read() << 8 | Wire.read()); // 16384.0; // X-axis value
-  float AccY = (Wire.read() << 8 | Wire.read()); // 16384.0; // Y-axis value
-  float AccZ = (Wire.read() << 8 | Wire.read()); // 16384.0; // Z-axis value
+  int time_passed_millis = millis() - current_time_millis;
+  current_time_millis = millis();
 
-  Serial.printf("AccX: %7.2f AccY: %7.2f AccZ: %7.2f\n", AccX, AccY, AccZ);
+  set_axis_speed(&current_speed_ms_x, accel.acceleration.x, time_passed_millis);
+  set_axis_speed(&current_speed_ms_y, accel.acceleration.y, time_passed_millis);
+  set_axis_speed(&current_speed_ms_z, accel.acceleration.z, time_passed_millis);
 
-  // printAccelerometer(data_01);
-  // printAccelerometer(data_02);
+  set_axis_position('x', current_speed_ms_x, time_passed_millis);
+  set_axis_position('y', current_speed_ms_y, time_passed_millis);
+  set_axis_position('z', current_speed_ms_z, time_passed_millis);
 
-  delay(1000);
+  Serial.printf("Posição atual (X, Y, Z): {%.2f, %.2f, %.2f}", current_position_m[0], current_position_m[1], current_position_m[2]);
 }
