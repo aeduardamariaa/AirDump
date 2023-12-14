@@ -5,9 +5,12 @@ btconn = BluetoothConnection(BLUETOOTH_ADDRESS, 1, 1)
 btconn.connect()
 print(btconn.connection())
 
+listaa = []
 
 while(1):
 
     noteESP = list(btconn.getPressedFromBT())[0]
 
-    print(noteESP)
+    listaa.append(noteESP)
+
+    print(listaa)
