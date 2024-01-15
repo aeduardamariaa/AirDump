@@ -9,6 +9,7 @@
         "initializer_list": "cpp",
         "list": "cpp",
         "xhash": "cpp",
-        "ostream": "cpp"
+        "ostream": "cpp",
+        "map": "cpp"
     }
 }
