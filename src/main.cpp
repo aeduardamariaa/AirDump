@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Adafruit_MPU6050.h>
+#include "ArduinoBLE.h"
 #include "calibration.h"
 #include <BluetoothSerial.h>
 
@@ -52,7 +53,7 @@ void setup()
       delay(10);
   }
 
-  SerialBT.begin("esp32btcuuuuu");
+  // SerialBT.begin("esp32btcuuuuu");
 
   mpu_accel = mpu.getAccelerometerSensor();
   mpu_accel->printSensorDetails();
@@ -72,7 +73,7 @@ void loop()
   time_passed_millis = millis() - current_time_millis;
   current_time_millis = millis();
 
-  send_bluetooth_data(&accel);
+  // send_bluetooth_data(&accel);
 
   if (millis() - print_time_millis >= 5000)
   {
