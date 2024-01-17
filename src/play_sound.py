@@ -46,17 +46,17 @@ class DrumKit:
         self.play_audio(address)
 
     def detect_and_play(self):
-        if 0.1 <= self.position.x <= 0.3 and 0.1 <= self.position.y <= 0.3 and self.position.z <= 0:
+        if 0.2 <= self.position.x <= 0.45 and 0.1 <= self.position.y <= 0.35 and self.position.z <= 0:
             self.play_sound("HIGH")
-        if 0.1 <= self.position.x <= 0.3 and 0.3 <= self.position.y <= 0.6 and self.position.z <= 0:
+        if 0.1 <= self.position.x <= 0.35 and 0.4 <= self.position.y <= 0.65 and self.position.z <= 0:
             self.play_sound("CAIXA")
-        if 0.1 <= self.position.x <= 0.3 and -0.1 <= self.position.y <= -0.3 and self.position.z <= 0:
+        if 0.2 <= self.position.x <= 0.45 and -0.1 <= self.position.y <= -0.35 and self.position.z <= 0:
             self.play_sound("LOW")
-        if 0.1 <= self.position.x <= 0.3 and -0.3 <= self.position.y <= -0.6 and self.position.z < 0:
+        if 0.1 <= self.position.x <= 0.35 and -0.4 <= self.position.y <= -0.65 and self.position.z < 0:
             self.play_sound("SURDO")
-        if 0.3 < self.position.x <= 0.6 and 0.2 <= self.position.y <= 0.5 and self.position.z < 0:
+        if 0.4 < self.position.x <= 0.65 and 0.5 <= self.position.y <= 0.75 and self.position.z < 0:
             self.play_sound("ATAQUE")
-        if 0.3 < self.position.x <= 0.6 and -0.2 >= self.position.y >= -0.5 and self.position.z < 0:
+        if 0.4 < self.position.x <= 0.65 and -0.5 >= self.position.y >= -0.75 and self.position.z < 0:
             self.play_sound("CONDUÇÃO")
         if self.button_chimbal:
             self.play_sound("CHIMBAL")
