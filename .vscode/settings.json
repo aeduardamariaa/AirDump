@@ -10,6 +10,9 @@
         "list": "cpp",
         "xhash": "cpp",
         "ostream": "cpp",
-        "map": "cpp"
+        "map": "cpp",
+        "array": "cpp",
+        "ranges": "cpp",
+        "span": "cpp"
     }
 }
