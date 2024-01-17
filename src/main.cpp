@@ -11,6 +11,7 @@ BluetoothSerial SerialBT;
 
 int current_time_millis = 0;
 int print_time_millis = 0;
+int count = 0;
 
 offset_values *offset;
 
@@ -26,18 +27,32 @@ void set_current_time()
   current_time_millis = millis();
 }
 
-void send_bluetooth_data(sensors_event_t *accel)
+void send_bluetooth_data(sensors_event_t *accel, int time_passed_millis)
 {
-  uint8_t accel_x_int = static_cast<uint8_t>(accel->acceleration.x);
-  uint8_t accel_y_int = static_cast<uint8_t>(accel->acceleration.y);
-  uint8_t accel_z_int = static_cast<uint8_t>(accel->acceleration.z);
+  byte data[16];
+  long l;
 
-  byte data[3];
-  data[0] = accel_x_int;
-  data[1] = accel_y_int;
-  data[2] = accel_z_int;
+  for (uint8_t i = 0; i < 4; i++) {
+    l = * (long *) &(accel->acceleration.x); // demonic cast to surround floating point bit problems
+    data[i] = (l >> (24 - i * 8)) & 0xFF;
+  }
 
-  SerialBT.write(data, 3);
+  for (uint8_t i = 0; i < 4; i++) {
+    l = * (long *) &(accel->acceleration.y);
+    data[i+4] = (l >> (24 - i * 8)) & 0xFF;
+  }
+
+  for (uint8_t i = 0; i < 4; i++) {
+    l = * (long *) &(accel->acceleration.z);
+    data[i+8] = (l >> (24 - i * 8)) & 0xFF;
+  }
+
+  for (uint8_t i = 0; i < 4; i++) {
+    l = * (long *) &time_passed_millis;
+    data[i+12] = (l >> (24 - i * 8)) & 0xFF;
+  }
+
+  SerialBT.write(data, 16);
 }
 
 void setup()
@@ -53,7 +68,7 @@ void setup()
       delay(10);
   }
 
-  // SerialBT.begin("esp32btcuuuuu");
+  SerialBT.begin("esp32btcuuuuu");
 
   mpu_accel = mpu.getAccelerometerSensor();
   mpu_accel->printSensorDetails();
@@ -64,22 +79,20 @@ void setup()
 
 void loop()
 {
-  sensors_event_t accel;
-  int time_passed_millis;
-
-  mpu_accel->getEvent(&accel);
-  correct_readings(&accel);
-
-  time_passed_millis = millis() - current_time_millis;
-  current_time_millis = millis();
-
-  // send_bluetooth_data(&accel);
-
-  if (millis() - print_time_millis >= 5000)
+  if (millis() - current_time_millis >= 100)
   {
-    print_time_millis = millis();
-    Serial.println("[VALORES]");
-    Serial.printf("Valores de aceleração após correção (X, Y, Z): {%.2f, %.2f, %.2f}\n", accel.acceleration.x, accel.acceleration.y, accel.acceleration.z);
-    Serial.printf("Sizeof do time_passed_millis: %i", sizeof(time_passed_millis));
+    sensors_event_t accel;
+    int time_passed_millis;
+
+    mpu_accel->getEvent(&accel);
+    correct_readings(&accel);
+
+    time_passed_millis = millis() - current_time_millis;
+    send_bluetooth_data(&accel, time_passed_millis);
+    count++;
+
+    current_time_millis = millis();
+
+    Serial.printf("Aceleração: {%.4f, %.4f, %.4f}\n", accel.acceleration.x, accel.acceleration.y, accel.acceleration.z);
   }
 }
