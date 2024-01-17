@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <Adafruit_MPU6050.h>
 #include <BluetoothSerial.h>
+#include <Emblate>
 #include "calibration.h"
-#include "queue.h"
 
 Adafruit_MPU6050 mpu;
 Adafruit_Sensor *mpu_accel;
@@ -13,7 +13,7 @@ int current_time_millis = 0;
 int count = 0;
 
 offset_values *offset;
-Queue<float> x_queue, y_queue, z_queue;
+Emblate::Queue<float> x_queue, y_queue, z_queue;
 
 void correct_readings(sensors_event_t *accel)
 {
@@ -29,15 +29,15 @@ void set_current_time()
 
 void manage_queues(sensors_event_t *accel)
 {
-  addToQueue(x_queue, accel.acceleration.x);
-  addToQueue(y_queue, accel.acceleration.y);
-  addToQueue(z_queue, accel.acceleration.z);
+  x_queue.push(accel->acceleration.x);
+  y_queue.push(accel->acceleration.y);
+  z_queue.push(accel->acceleration.z);
 
-  if (x_queue->size >= 100)
+  if (x_queue.size() >= 100)
   {
-    popFromQueue(x_queue);
-    popFromQueue(y_queue);
-    popFromQueue(z_queue);
+    x_queue.pop();
+    y_queue.pop();
+    z_queue.pop();
   }
 }
 
@@ -46,17 +46,17 @@ float* get_average_accelerations()
   float x_sum = 0, y_sum = 0, z_sum = 0;
 
   // TODO: create iterator for queues and substitute here
-  for (uint8_t i = 0; i < x_queue->size; i++)
+  for (uint8_t i = 0; i < x_queue.size(); i++)
   {
-    x_sum += getFromQueueByIndex(x_queue, i);
-    y_sum += getFromQueueByIndex(y_queue, i);
-    z_sum += getFromQueueByIndex(z_queue, i);
+    x_sum += x_queue[i];
+    y_sum += y_queue[i];
+    z_sum += z_queue[i];
   }
 
-  float *averages = malloc(sizeof(float) * 3);
-  averages[0] = x_sum / x_queue->size;
-  averages[1] = y_sum / y_queue->size;
-  averages[2] = z_sum / z_queue->size;
+  float *averages = (float*) malloc(sizeof(float) * 3);
+  averages[0] = x_sum / x_queue.size();
+  averages[1] = y_sum / y_queue.size();
+  averages[2] = z_sum / z_queue.size();
 
   return averages;
 }
