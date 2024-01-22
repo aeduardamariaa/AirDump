@@ -8,9 +8,12 @@ class Data:
 
 class DrumKit:
     def __init__(self):
-        self.position = Data(0.2, 0.2, 0.0)
-        self.button_chimbal = 1
-        self.button_bumbo = 1
+        self.position = Data(0.0, 0.0, 0.0)
+        self.button_chimbal = 0
+        self.button_bumbo = 0
+
+    def change_position(self, new_position: list[float]):
+        self.position = Data(new_position[0], new_position[1], new_position[2])
 
     def play_audio(self, address):
         pygame.mixer.init()
@@ -46,22 +49,24 @@ class DrumKit:
         self.play_audio(address)
 
     def detect_and_play(self):
-        if 0.2 <= self.position.x <= 0.45 and 0.1 <= self.position.y <= 0.35 and self.position.z <= 0:
-            self.play_sound("HIGH")
-        if 0.1 <= self.position.x <= 0.35 and 0.4 <= self.position.y <= 0.65 and self.position.z <= 0:
+        # if 0.2 <= self.position.x <= 0.45 and 0.1 <= self.position.y <= 0.35 and self.position.z <= 0:
+        #     self.play_sound("HIGH")
+        if self.position.z < 0:
             self.play_sound("CAIXA")
-        if 0.2 <= self.position.x <= 0.45 and -0.1 <= self.position.y <= -0.35 and self.position.z <= 0:
-            self.play_sound("LOW")
-        if 0.1 <= self.position.x <= 0.35 and -0.4 <= self.position.y <= -0.65 and self.position.z < 0:
-            self.play_sound("SURDO")
-        if 0.4 < self.position.x <= 0.65 and 0.5 <= self.position.y <= 0.75 and self.position.z < 0:
-            self.play_sound("ATAQUE")
-        if 0.4 < self.position.x <= 0.65 and -0.5 >= self.position.y >= -0.75 and self.position.z < 0:
-            self.play_sound("CONDUÇÃO")
-        if self.button_chimbal:
-            self.play_sound("CHIMBAL")
-        if self.button_bumbo:
-            self.play_sound("BUMBO")
+        # if 0.2 <= self.position.x <= 0.45 and -0.1 <= self.position.y <= -0.35 and self.position.z <= 0:
+        #     self.play_sound("LOW")
+        # if 0.1 <= self.position.x <= 0.35 and -0.4 <= self.position.y <= -0.65 and self.position.z < 0:
+        #     self.play_sound("SURDO")
+        # if 0.4 < self.position.x <= 0.65 and 0.5 <= self.position.y <= 0.75 and self.position.z < 0:
+        #     self.play_sound("ATAQUE")
+        # if 0.4 < self.position.x <= 0.65 and -0.5 >= self.position.y >= -0.75 and self.position.z < 0:
+        #     self.play_sound("CONDUÇÃO")
+        # if self.button_chimbal:
+        #     self.play_sound("CHIMBAL")
+        # if self.button_bumbo:
+        #     self.play_sound("BUMBO")
 
-drum_kit = DrumKit()
-drum_kit.detect_and_play()
+if __name__ == "__main__":
+
+    drum_kit = DrumKit()
+    drum_kit.detect_and_play()

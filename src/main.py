@@ -1,15 +1,21 @@
 import ctypes
 from bluetoothConnection import BluetoothConnection
 
-BLUETOOTH_ADDRESS = '08:3A:F2:50:B1:92'
+from play_sound import Data
+from play_sound import DrumKit
+
+BLUETOOTH_ADDRESS = '08:3A:F2:50:A8:56'
 btconn = BluetoothConnection(BLUETOOTH_ADDRESS, 1, 1)
 btconn.connect()
 print(btconn.connection())
 
-current_accelerations = [0.0, 0.0, 0.0]
-current_speeds = [0.0, 0.0, 0.0]
-current_position = [0.0, 0.0, 0.0]
-count = 0
+movement_over_time = [list(), list(), list()]
+current_state = [0, 0, 0]
+movement_started = [False, False, False]
+capture_started = [False, False, False]
+capture_ended = [False, False, False]
+
+new_drum = DrumKit()
 
 def receive_readings() -> tuple:
     readings = [0.0, 0.0, 0.0]
@@ -28,30 +34,47 @@ def receive_readings() -> tuple:
                                     ctypes.POINTER(ctypes.c_float))
         readings[i] = float_pointer.contents.value
 
-        if (readings[i] > -0.15 and readings[i] < 0.15):
-            readings[i] = 0
-
     for i in range(4):
         time_passed_millis += list(btconn.getPressedFromBT())[0]
 
     return (readings, time_passed_millis)
 
-def set_current_position(accelerations: list[int], time_passed_millis: int):
+def track_movement(accelerations: list[float], time_passed_millis: int):
     for i in range(3):
-        speed = current_speeds[i]
-        speed += (accelerations[i] + current_accelerations[i]) / 2 * (time_passed_millis / 1000)
+        if accelerations[i] > -0.15 and accelerations[i] < 0.15:
+            accelerations[i] = 0
 
-        current_accelerations[i] = accelerations[i]
+        if (current_state[i] == 0) and (accelerations[i] != 0):
+            current_state[i] == 1
+            movement_over_time[i].append(accelerations[i])
+            return
 
-        position = current_position[i]
-        position += (speed + current_speeds[i]) / 2 * (time_passed_millis / 1000)
+        if current_state[i] == 1:
+            if accelerations[i] * movement_over_time[i][0] > 0:
+                movement_over_time[i].append(accelerations[i])
+                return
 
-        current_speeds[i] = speed
-        current_position[i] = position
+            else:
+                current_state[i] = 2
+
+        if current_state[i] == 2:
+            if accelerations[i] == 0:
+                current_state[i] = 3
+            else:
+                return
+    
+        if current_state[i] == 3:
+            interpret_movement(movement_over_time[i], i)
+            current_state[i] = 0
+
+def interpret_movement(accelerations: list[float], axis: int):
+    if axis == 2:
+        new_drum.change_position([0.0, 0.0, sum(accelerations) / len(accelerations)])
+        new_drum.detect_and_play()
 
 if __name__ == "__main__":
-
     while(1):
         accelerations, time_passed_millis = receive_readings()
+        track_movement(accelerations, time_passed_millis)
 
-        
+        print(accelerations)

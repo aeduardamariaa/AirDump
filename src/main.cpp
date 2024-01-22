@@ -33,24 +33,22 @@ void set_current_time()
 
 void get_average_accelerations(sensors_event_t *accel)
 {
-  x_queue.push(accel->acceleration.x);
-  y_queue.push(accel->acceleration.y);
-  z_queue.push(accel->acceleration.z);
+  x_queue.slide_limited(accel->acceleration.x, 100);
+  y_queue.slide_limited(accel->acceleration.y, 100);
+  z_queue.slide_limited(accel->acceleration.z, 100);
 
-  if (x_queue.size() >= 100)
+  float x_sum = 0, y_sum = 0, z_sum = 0;
+
+  for (uint8_t i = 0; i < x_queue.size(); i++)
   {
-    averages[0] -= x_queue.front() / x_queue.size();
-    averages[1] -= y_queue.front() / y_queue.size();
-    averages[2] -= z_queue.front() / z_queue.size();
-
-    x_queue.pop();
-    y_queue.pop();
-    z_queue.pop();
+    x_sum += x_queue[i];
+    y_sum += y_queue[i];
+    z_sum += z_queue[i];
   }
 
-  averages[0] += x_queue.back() / x_queue.size();
-  averages[1] += y_queue.back() / y_queue.size();
-  averages[2] += z_queue.back() / z_queue.size();
+  averages[0] = x_sum / x_queue.size();
+  averages[1] = y_sum / y_queue.size();
+  averages[2] = z_sum / z_queue.size();
 }
 
 void send_bluetooth_data(float* accelerations, int time_passed_millis)
@@ -91,7 +89,7 @@ void setup()
       delay(10);
   }
 
-  SerialBT.begin("esp32btcuuuuu");
+  SerialBT.begin("esp32doandre");
 
   mpu_accel = mpu.getAccelerometerSensor();
   mpu_accel->printSensorDetails();
@@ -102,12 +100,6 @@ void setup()
 
 void loop()
 {
-  // if (millis() - calibration_time_millis >= 100)
-  // {
-  //   offset = get_offset_values(10, mpu_accel);
-  //   calibration_time_millis = millis();
-  // }
-
   mpu_accel->getEvent(&accel);
   correct_readings(&accel);
   get_average_accelerations(&accel);
