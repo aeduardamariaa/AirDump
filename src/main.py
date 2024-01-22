@@ -1,5 +1,4 @@
 import ctypes
-import time
 from bluetoothConnection import BluetoothConnection
 
 BLUETOOTH_ADDRESS = '08:3A:F2:50:B1:92'
@@ -7,6 +6,7 @@ btconn = BluetoothConnection(BLUETOOTH_ADDRESS, 1, 1)
 btconn.connect()
 print(btconn.connection())
 
+current_accelerations = [0.0, 0.0, 0.0]
 current_speeds = [0.0, 0.0, 0.0]
 current_position = [0.0, 0.0, 0.0]
 count = 0
@@ -28,40 +28,30 @@ def receive_readings() -> tuple:
                                     ctypes.POINTER(ctypes.c_float))
         readings[i] = float_pointer.contents.value
 
+        if (readings[i] > -0.15 and readings[i] < 0.15):
+            readings[i] = 0
+
     for i in range(4):
         time_passed_millis += list(btconn.getPressedFromBT())[0]
 
     return (readings, time_passed_millis)
 
-def set_current_speeds(accelerations: list[int], time_passed_millis: int):
+def set_current_position(accelerations: list[int], time_passed_millis: int):
     for i in range(3):
-        current_speeds[i] += accelerations[i] * (time_passed_millis / 1000)
+        speed = current_speeds[i]
+        speed += (accelerations[i] + current_accelerations[i]) / 2 * (time_passed_millis / 1000)
 
-def set_current_position(time_passed_millis: int):
-    for i in range(3):
-        movement = current_speeds[i] * (time_passed_millis / 1000)
+        current_accelerations[i] = accelerations[i]
 
-        if movement > -0.01 and movement < 0.01:
-            return
+        position = current_position[i]
+        position += (speed + current_speeds[i]) / 2 * (time_passed_millis / 1000)
 
-        current_position[i] += movement
+        current_speeds[i] = speed
+        current_position[i] = position
 
 if __name__ == "__main__":
-    starting_time = time.time()
 
     while(1):
         accelerations, time_passed_millis = receive_readings()
 
-        set_current_speeds(accelerations, time_passed_millis)
-        set_current_position(time_passed_millis)
-
-        print(current_position)
-        count += 1
-
-        if (time.time() - starting_time >= 10):
-            print(count)
-            starting_time = time.time()
-
-            break
-
-    print(current_position)
+        

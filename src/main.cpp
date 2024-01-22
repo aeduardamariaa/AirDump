@@ -2,16 +2,20 @@
 #include <Adafruit_MPU6050.h>
 #include <BluetoothSerial.h>
 #include <Emblate>
+#include <stdlib.h>
 #include "calibration.h"
 
 Adafruit_MPU6050 mpu;
 Adafruit_Sensor *mpu_accel;
+sensors_event_t accel;
 
 BluetoothSerial SerialBT;
 
+int calibration_time_millis = 0;
 int current_time_millis = 0;
-int count = 0;
+int time_passed_millis = 0;
 
+float averages[3] = {0, 0, 0};
 offset_values *offset;
 Emblate::Queue<float> x_queue, y_queue, z_queue;
 
@@ -27,7 +31,7 @@ void set_current_time()
   current_time_millis = millis();
 }
 
-void manage_queues(sensors_event_t *accel)
+void get_average_accelerations(sensors_event_t *accel)
 {
   x_queue.push(accel->acceleration.x);
   y_queue.push(accel->acceleration.y);
@@ -35,42 +39,32 @@ void manage_queues(sensors_event_t *accel)
 
   if (x_queue.size() >= 100)
   {
+    averages[0] -= x_queue.front() / x_queue.size();
+    averages[1] -= y_queue.front() / y_queue.size();
+    averages[2] -= z_queue.front() / z_queue.size();
+
     x_queue.pop();
     y_queue.pop();
     z_queue.pop();
   }
-}
 
-float* get_average_accelerations()
-{
-  float x_sum = 0, y_sum = 0, z_sum = 0;
-
-  // TODO: create iterator for queues and substitute here
-  for (uint8_t i = 0; i < x_queue.size(); i++)
-  {
-    x_sum += x_queue[i];
-    y_sum += y_queue[i];
-    z_sum += z_queue[i];
-  }
-
-  float *averages = (float*) malloc(sizeof(float) * 3);
-  averages[0] = x_sum / x_queue.size();
-  averages[1] = y_sum / y_queue.size();
-  averages[2] = z_sum / z_queue.size();
-
-  return averages;
+  averages[0] += x_queue.back() / x_queue.size();
+  averages[1] += y_queue.back() / y_queue.size();
+  averages[2] += z_queue.back() / z_queue.size();
 }
 
 void send_bluetooth_data(float* accelerations, int time_passed_millis)
 {
-  byte data[sizeof(float) * 3 + sizeof(int)];
+  byte data[16];
   long l;
 
   for (uint8_t i = 0; i < 3; i++)
   {
     for (uint8_t j = 0; j < sizeof(float); j++)
     {
-      l = * (long *) &(accelerations[i]); // demonic cast to surround floating point bit problems
+      // Demonic cast to surround problems with bitwise operations on
+      // floating point type. Will be re-cast on Python.
+      l = * (long *) &(accelerations[i]);
       data[i*4 + j] = (l >> (24 - j * 8)) & 0xFF;
     }
   }
@@ -78,10 +72,10 @@ void send_bluetooth_data(float* accelerations, int time_passed_millis)
   for (uint8_t i = 0; i < 4; i++)
   {
     l = * (long *) &time_passed_millis;
-    data[i + sizeof(float) * 3] = (l >> (24 - i * 8)) & 0xFF;
+    data[i+12] = (l >> (24 - i * 8)) & 0xFF;
   }
 
-  SerialBT.write(data, sizeof(float) * 3 + sizeof(int));
+  SerialBT.write(data, 16);
 }
 
 void setup()
@@ -108,20 +102,19 @@ void setup()
 
 void loop()
 {
-  sensors_event_t accel;
-  int time_passed_millis;
+  // if (millis() - calibration_time_millis >= 100)
+  // {
+  //   offset = get_offset_values(10, mpu_accel);
+  //   calibration_time_millis = millis();
+  // }
 
   mpu_accel->getEvent(&accel);
   correct_readings(&accel);
-
-  manage_queues(&accel);
-  float* average_accelerations = get_average_accelerations();
+  get_average_accelerations(&accel);
 
   time_passed_millis = millis() - current_time_millis;
-  send_bluetooth_data(average_accelerations, time_passed_millis);
-  count++;
+  set_current_time();
+  send_bluetooth_data(averages, time_passed_millis);
 
-  current_time_millis = millis();
-
-  Serial.printf("Aceleração: {%.4f, %.4f, %.4f}\n", accel.acceleration.x, accel.acceleration.y, accel.acceleration.z);
+  Serial.printf("Aceleração: {%.4f, %.4f, %.4f}\n", averages[0], averages[1], averages[2]);
 }

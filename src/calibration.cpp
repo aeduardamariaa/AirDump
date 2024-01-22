@@ -20,7 +20,7 @@ offset_values *get_offset_values(uint16_t iter_num, Adafruit_Sensor *ada_sensor)
   // Finding all the read values for each axis.
   for (uint16_t i = 0; i < iter_num; i++)
   {
-    delay(10);
+    // delay(10);
 
     sensors_event_t accel;
     ada_sensor->getEvent(&accel);
