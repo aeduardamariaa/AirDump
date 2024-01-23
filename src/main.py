@@ -1,23 +1,20 @@
 import ctypes
+import time
+import threading
 from bluetoothConnection import BluetoothConnection
 
 from play_sound import Data
 from play_sound import DrumKit
 
-BLUETOOTH_ADDRESS = '08:3A:F2:50:A8:56'
+BLUETOOTH_ADDRESS = '64:B7:08:CA:69:A2'
 btconn = BluetoothConnection(BLUETOOTH_ADDRESS, 1, 1)
 btconn.connect()
 print(btconn.connection())
 
-movement_over_time = [list(), list(), list()]
-current_state = [0, 0, 0]
-movement_started = [False, False, False]
-capture_started = [False, False, False]
-capture_ended = [False, False, False]
-
 new_drum = DrumKit()
+z_pos = 0
 
-def receive_readings() -> tuple:
+def receive_readings(conn) -> tuple:
     readings = [0.0, 0.0, 0.0]
     time_passed_millis = int()
 
@@ -25,7 +22,7 @@ def receive_readings() -> tuple:
         aux = 0
         for j in range(4):
             aux <<= 8
-            aux |= list(btconn.getPressedFromBT())[0]
+            aux |= list(conn.getPressedFromBT())[0]
 
         # C-pointer fuckery to deal with floating-point bitwise operations
         # (because of the way data comes from our bluetooth connection)
@@ -34,47 +31,39 @@ def receive_readings() -> tuple:
                                     ctypes.POINTER(ctypes.c_float))
         readings[i] = float_pointer.contents.value
 
+        if readings[i] > -0.15 and readings[i] < 0.15:
+            readings[i] = 0
+
     for i in range(4):
-        time_passed_millis += list(btconn.getPressedFromBT())[0]
+        time_passed_millis += list(conn.getPressedFromBT())[0]
 
     return (readings, time_passed_millis)
 
-def track_movement(accelerations: list[float], time_passed_millis: int):
-    for i in range(3):
-        if accelerations[i] > -0.15 and accelerations[i] < 0.15:
-            accelerations[i] = 0
-
-        if (current_state[i] == 0) and (accelerations[i] != 0):
-            current_state[i] == 1
-            movement_over_time[i].append(accelerations[i])
-            return
-
-        if current_state[i] == 1:
-            if accelerations[i] * movement_over_time[i][0] > 0:
-                movement_over_time[i].append(accelerations[i])
-                return
-
-            else:
-                current_state[i] = 2
-
-        if current_state[i] == 2:
-            if accelerations[i] == 0:
-                current_state[i] = 3
-            else:
-                return
-    
-        if current_state[i] == 3:
-            interpret_movement(movement_over_time[i], i)
-            current_state[i] = 0
-
-def interpret_movement(accelerations: list[float], axis: int):
-    if axis == 2:
-        new_drum.change_position([0.0, 0.0, sum(accelerations) / len(accelerations)])
-        new_drum.detect_and_play()
+def calculate_z_pos(accelerations: list[float], time: int, z_pos: float):
+    if z_pos == (accelerations[2] * (time / 1000)):
+        z_pos = 0
+    else:
+        z_pos = accelerations[2] * (time / 1000)
 
 if __name__ == "__main__":
-    while(1):
-        accelerations, time_passed_millis = receive_readings()
-        track_movement(accelerations, time_passed_millis)
+    initial_time = time.time()
+    sound_just_played = False
 
-        print(accelerations)
+    while(1):
+        accelerations, time_passed_millis = receive_readings(btconn)
+        calculate_z_pos(accelerations, time_passed_millis, z_pos)
+
+        new_drum.change_position([0, 0, z_pos])
+
+        if sound_just_played and (time.time() - initial_time >= 0.5):
+            sound_just_played = False
+
+        if not sound_just_played:
+            play = threading.Thread(target=new_drum.detect_and_play)
+            play.start()
+
+            if z_pos <= -0.01:
+                initial_time = time.time()
+                sound_just_played = True
+
+            print(z_pos)
