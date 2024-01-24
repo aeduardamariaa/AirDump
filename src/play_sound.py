@@ -1,5 +1,7 @@
 import pygame
 
+pygame.mixer.init()
+
 class Data:
     def __init__(self, x: float, y: float, z: float) -> None:
         self.x = x
@@ -16,14 +18,13 @@ class DrumKit:
         self.position = Data(new_position[0], new_position[1], new_position[2])
 
     def play_audio(self, address):
-        pygame.mixer.init()
         pygame.mixer.music.load(address)
         pygame.mixer.music.play()
 
         while pygame.mixer.music.get_busy():
             pygame.time.Clock().tick(10)
 
-        pygame.mixer.quit()
+        # pygame.mixer.quit()
 
     def play_sound(self, sound_type):
         if sound_type == "HIGH":
@@ -51,7 +52,7 @@ class DrumKit:
     def detect_and_play(self):
         # if 0.2 <= self.position.x <= 0.45 and 0.1 <= self.position.y <= 0.35 and self.position.z <= 0:
         #     self.play_sound("HIGH")
-        if self.position.z < 0:
+        if self.position.z < -0.01:
             self.play_sound("CAIXA")
         # if 0.2 <= self.position.x <= 0.45 and -0.1 <= self.position.y <= -0.35 and self.position.z <= 0:
         #     self.play_sound("LOW")

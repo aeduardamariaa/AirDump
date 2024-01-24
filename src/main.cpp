@@ -61,7 +61,7 @@ void send_bluetooth_data(float* accelerations, int time_passed_millis)
     for (uint8_t j = 0; j < sizeof(float); j++)
     {
       // Demonic cast to surround problems with bitwise operations on
-      // floating point type. Will be re-cast on Python.
+      // floating-point type. Will be re-cast on Python.
       l = * (long *) &(accelerations[i]);
       data[i*4 + j] = (l >> (24 - j * 8)) & 0xFF;
     }
@@ -89,7 +89,7 @@ void setup()
       delay(10);
   }
 
-  SerialBT.begin("esp32doandre");
+  SerialBT.begin("ESP32 do Andre");
 
   mpu_accel = mpu.getAccelerometerSensor();
   mpu_accel->printSensorDetails();
@@ -100,6 +100,12 @@ void setup()
 
 void loop()
 {
+  if (millis() - calibration_time_millis >= 1000)
+  {
+    offset = get_offset_values(40, mpu_accel);
+    calibration_time_millis = millis();
+  }
+
   mpu_accel->getEvent(&accel);
   correct_readings(&accel);
   get_average_accelerations(&accel);
